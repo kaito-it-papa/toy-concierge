@@ -19,6 +19,9 @@
       width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto;
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* スムーズスクロールを有効化 */
+    html { scroll-behavior: smooth; }
   </style>
 </head>
 <body class="text-gray-700 min-h-screen pb-12">
@@ -39,10 +42,8 @@
 
   <div class="max-w-3xl mx-auto px-4">
     
-    <div class="sticky top-0 z-50 pt-4 pb-2 -mx-4 px-4 bg-white/95 backdrop-blur-sm shadow-sm transition-all duration-300">
-      
+    <div class="pt-4 pb-2 -mx-4 px-4 transition-all duration-300">
       <div class="bg-white p-4 md:p-6 rounded-2xl shadow border border-gray-200">
-        
         <h2 class="text-center text-lg font-bold text-gray-600 mb-4 flex items-center justify-center gap-2">
           <span>🔍</span> 条件を入力して検索
         </h2>
@@ -75,60 +76,55 @@
           <textarea id="traits" rows="2" class="w-full p-2 bg-blue-50 rounded-lg border-none focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm" placeholder="例：恐竜が好き。集中力がある。"></textarea>
         </div>
   
-        <button onclick="startSearch()" class="w-full bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white font-bold py-3 rounded-xl shadow-md transform transition hover:scale-[1.01] active:scale-95 flex items-center justify-center gap-2 text-sm">
+        <button id="search-button" onclick="startSearch()" class="w-full bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white font-bold py-3 rounded-xl shadow-md transform transition hover:scale-[1.01] active:scale-95 flex items-center justify-center gap-2 text-sm">
           <span>AIに提案してもらう</span> 🎁
         </button>
       </div>
     </div>
-    <div id="loading" class="hidden text-center py-10 mt-8">
+
+    <div id="loading" class="hidden text-center py-10 mt-8 scroll-mt-10">
       <div class="loader mb-4"></div>
       <p class="text-blue-500 font-bold animate-pulse">AI知育玩具コンシェルジュが最適な玩具を選んでいます...</p>
       <p class="text-xs text-gray-400 mt-2">（20〜30秒ほどかかります）</p>
     </div>
 
-    <div id="results" class="space-y-6 mt-8">
-      </div>
+    <div id="results" class="space-y-6 mt-8"></div>
   </div>
 
   <script>
-    // ▼▼▼【重要】ここにあなたのGASウェブアプリURLを貼り付けてください ▼▼▼
-    // 例: "https://script.google.com/macros/s/AKfycbzL_VmjCm2bGTwnq80CMlV6pLtYM-HaWG0OeiiEC0e0zo9SgG6ghT96jddzgRCe9m_w/exec"
+    // ▼▼▼【重要】GASウェブアプリURL ▼▼▼
     const API_URL = "https://script.google.com/macros/s/AKfycbzL_VmjCm2bGTwnq80CMlV6pLtYM-HaWG0OeiiEC0e0zo9SgG6ghT96jddzgRCe9m_w/exec"; 
-    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     async function startSearch() {
       const age = document.getElementById('age').value;
       const gender = document.getElementById('gender').value;
       const traits = document.getElementById('traits').value;
+      const loadingDiv = document.getElementById('loading');
+      const searchButton = document.getElementById('search-button');
 
-      // 入力チェック
       if (!traits.trim()) {
-        alert("お子様の特性を入力してください。\n（例：パズルが好き、体を動かすのが好き、など）");
+        alert("お子様の特性を入力してください。");
         return;
       }
 
-      // UIのリセット
+      // 1. UIの準備
       document.getElementById('results').innerHTML = "";
-      document.getElementById('loading').classList.remove('hidden');
+      loadingDiv.classList.remove('hidden');
+      
+      // 2. 自動スクロール（ローディングが画面に入るように）
+      // block: 'center' で画面の中央付近にスクロールさせ、視認性を高めます
+      loadingDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-      // Fetch APIを使ってGASにデータを送信
+      // 3. ボタンの無効化（連打防止）
+      searchButton.disabled = true;
+      searchButton.classList.add('opacity-50', 'cursor-not-allowed');
+
       try {
-        if (API_URL.includes("ここに_GAS")) {
-          throw new Error("API URLが設定されていません。HTMLファイル内の API_URL を書き換えてください。");
-        }
-
-        // URLパラメータを作成
         const url = `${API_URL}?age=${encodeURIComponent(age)}&gender=${encodeURIComponent(gender)}&traits=${encodeURIComponent(traits)}`;
-        
-        // データ取得
-        const response = await fetch(url, {
-          method: "GET",
-          headers: { "Content-Type": "text/plain" },
-        });
-
+        const response = await fetch(url, { method: "GET", headers: { "Content-Type": "text/plain" } });
         const data = await response.json();
         
-        // GAS側からのエラーチェック
         if (data.error) {
           showError({ message: data.error });
         } else {
@@ -137,19 +133,19 @@
 
       } catch (error) {
         showError(error);
+      } finally {
+        // 4. ボタンの復元
+        searchButton.disabled = false;
+        searchButton.classList.remove('opacity-50', 'cursor-not-allowed');
       }
     }
 
-    // 結果表示関数
     function showResults(data) {
       document.getElementById('loading').classList.add('hidden');
       const container = document.getElementById('results');
 
       if (!data || data.length === 0) {
-        container.innerHTML = `
-          <div class="text-center p-8 bg-white rounded-xl border border-dashed border-gray-300">
-            <p class="text-gray-500">条件に合う商品が見つかりませんでした。<br>別のキーワードや特性で試してみてください。</p>
-          </div>`;
+        container.innerHTML = `<div class="text-center p-8 bg-white rounded-xl border border-dashed border-gray-300"><p class="text-gray-500">条件に合う商品が見つかりませんでした。</p></div>`;
         return;
       }
 
@@ -178,17 +174,17 @@
                 </a>
               </div>
             </div>
-          </div>
-        `;
+          </div>`;
       });
       container.innerHTML = html;
+      
+      // 結果が表示されたら、結果の先頭へスクロール
+      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // エラー表示関数
     function showError(error) {
       document.getElementById('loading').classList.add('hidden');
       alert("エラーが発生しました: " + error.message);
-      console.error(error);
     }
   </script>
 </body>
